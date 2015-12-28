@@ -1,21 +1,17 @@
 elasticsearch:
-  build: elasticsearch/
-  command: elasticsearch -Des.network.host=0.0.0.0
+  image: elk/elasticsearch
   ports:
     - "9200:9200"
 logstash:
-  image: logstash:latest
+  image: elk/logstash
   command: logstash -f /etc/logstash/conf.d/logstash.conf
-  volumes:
-    - ./logstash/config:/etc/logstash/conf.d
   ports:
     - "5000:5000"
+    - "5514:5514"
   links:
     - elasticsearch
 kibana:
-  build: kibana/
-  volumes:
-    - ./kibana/config/kibana.yml:/opt/kibana/config/kibana.yml
+  image: elk/kibana
   ports:
     - "5601:5601"
   links:
