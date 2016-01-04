@@ -1,7 +1,5 @@
 # Docker ELK stack
 
-[![Join the chat at https://gitter.im/deviantony/fig-elk](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/deviantony/fig-elk?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-
 Run the latest version of the ELK (Elasticseach, Logstash, Kibana) stack with Docker and Docker-compose. Authentication is managed by [Shield](https://www.elastic.co/products/shield).
 
 It will give you the ability to analyze any data set by using the searching/aggregation capabilities of Elasticseach and the visualization power of Kibana.
@@ -18,36 +16,21 @@ Based on the official images:
 
 1. Install [Docker](http://docker.io).
 2. Install [Docker-compose](http://docs.docker.com/compose/install/).
-3. Clone this repository
+3. Install [Docker-machine](https://docs.docker.com/machine/install-machine/).
+4. Clone this repository
+5. Run 'docker-machine create -d virtualbox HOSTNAME' to create a new Docker host using VirtualBox driver
+6. Switch to Docker host context: eval $(docker-machine env HOSTNAME)
+7. Run 'create-images.sh' to create Logstash / Elasticsearch / Kibana images containing the configurations
+8. Run 'docker-compose up' to run the stack
 
-## SELinux
+Note: usage of docker-machine is not mandatory (even if it's really convenient). If you can already talk to a Docker Engine, you do not need steps 3/5/6
 
-On distributions which have SELinux enabled out-of-the-box you will need to either re-context the files or set SELinux into Permissive mode in order for docker-elk to start properly.
-For example on Redhat and CentOS, the following will apply the proper context:
+## Populate
 
-````bash
-.-root@centos ~
--$ chcon -R system_u:object_r:admin_home_t:s0 fig-elk/
-````
-
-# Usage
-
-Start the ELK stack using *docker-compose*:
+Send log file to logstash
 
 ```bash
-$ docker-compose up
-```
-
-You can also choose to run it in background (detached mode):
-
-```bash
-$ docker-compose up -d
-```
-
-Now that the stack is running, you'll want to inject logs in it. The shipped logstash configuration allows you to send content via tcp:
-
-```bash
-$ nc localhost 5000 < /path/to/logfile.log
+$ nc DOCKER_HOST_IP 5000 < /path/to/logfile.log
 ```
 
 And then access Kibana UI by hitting [http://localhost:5601](http://localhost:5601) with a web browser.
@@ -57,20 +40,15 @@ And then access Kibana UI by hitting [http://localhost:5601](http://localhost:56
 You can also access:
 * Sense: [http://localhost:5601/app/sense](http://localhost:5601/app/sense)
 
-*Note*: In order to use Sense, you'll need to query the IP address associated to your *network device* instead of localhost.
-
 By default, the stack exposes the following ports:
-* 5000: Logstash TCP input.
+* 5000: Logstash TCP input
+* 5514: Logstash syslog input
 * 9200: Elasticsearch HTTP
 * 5601: Kibana
 
-*WARNING*: If you're using *boot2docker*, you must access it via the *boot2docker* IP address instead of *localhost*.
-
-*WARNING*: If you're using *Docker Toolbox*, you must access it via the *docker-machine* IP address instead of *localhost*.
-
 # Configuration
 
-*NOTE*: Configuration is not dynamically reloaded, you will need to restart the stack after any change in the configuration of a component.
+If the configuration of a component changes, the image need to be re-created and the stack needs to be re-deployed
 
 ## How can I tune Kibana configuration?
 
@@ -89,58 +67,13 @@ The Logstash container use the *LS_HEAP_SIZE* environment variable to determine 
 
 If you want to override the default configuration, add the *LS_HEAP_SIZE* environment variable to the container in the `docker-compose.yml`:
 
-```yml
-logstash:
-  image: logstash:latest
-  command: logstash -f /etc/logstash/conf.d/logstash.conf
-  volumes:
-    - ./logstash/config:/etc/logstash/conf.d
-  ports:
-    - "5000:5000"
-  links:
-    - elasticsearch
-  environment:
-    - LS_HEAP_SIZE=2048m
-```
-
-## How can I enable a remote JMX connection to Logstash?
-
-As for the Java heap memory, another environment variable allows to specify JAVA_OPTS used by Logstash. You'll need to specify the appropriate options to enable JMX and map the JMX port on the docker host.
-
-Update the container in the `docker-compose.yml` to add the *LS_JAVA_OPTS* environment variable with the following content (I've mapped the JMX service on the port 18080, you can change that), do not forget to update the *-Djava.rmi.server.hostname* option with the IP address of your Docker host (replace **DOCKER_HOST_IP**):
-
-```yml
-logstash:
-  image: logstash:latest
-  command: logstash -f /etc/logstash/conf.d/logstash.conf
-  volumes:
-    - ./logstash/config:/etc/logstash/conf.d
-  ports:
-    - "5000:5000"
-    - "18080:18080"
-  links:
-    - elasticsearch
-  environment:
-    - LS_JAVA_OPTS=-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.port=18080 -Dcom.sun.management.jmxremote.rmi.port=18080 -Djava.rmi.server.hostname=DOCKER_HOST_IP -Dcom.sun.management.jmxremote.local.only=false
-```
-
 ## How can I tune Elasticsearch configuration?
 
 The Elasticsearch container is using the shipped configuration and it is not exposed by default.
 
 If you want to override the default configuration, create a file `elasticsearch/config/elasticsearch.yml` and add your configuration in it.
 
-Then, you'll need to map your configuration file inside the container in the `docker-compose.yml`. Update the elasticsearch container declaration to:
-
-```yml
-elasticsearch:
-  build: elasticsearch/
-  command: elasticsearch -Des.network.host=_non_loopback_
-  ports:
-    - "9200:9200"
-  volumes:
-    - ./elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
-```
+Then, you'll need to re-create the image
 
 You can also specify the options you want to override directly in the command field:
 

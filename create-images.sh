@@ -11,7 +11,3 @@ docker build -t elk/logstash .
 # Build Kibana image
 cd $DOCKER_ELK_HOME/kibana
 docker build -t elk/kibana .
-
-# Run stack
-cd $DOCKER_ELK_HOME
-docker-compose up
